@@ -17,7 +17,7 @@ function SensorHistory() {
       setLoading(true);
 
       const res = await axios.get(
-        "http://localhost:3637/api/greenhouse/range",
+        "https://greenhouse-backend-4.onrender.com/api/greenhouse/range",
         {
           params: {
             startDate,
