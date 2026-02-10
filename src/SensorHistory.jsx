@@ -7,6 +7,8 @@ function SensorHistory() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   const fetchData = async () => {
     if (!startDate || !endDate) {
       alert("Please select both start and end date/time");
@@ -16,15 +18,20 @@ function SensorHistory() {
     try {
       setLoading(true);
 
+      // 🔥 Convert local datetime to UTC ISO format
+      const startUTC = new Date(startDate).toISOString();
+      const endUTC = new Date(endDate).toISOString();
+
       const res = await axios.get(
-        "https://greenhouse-backend-4.onrender.com/api/greenhouse/range",
+        `http://localhost:3637/api/greenhouse/range`,
         {
           params: {
-            startDate,
-            endDate,
+            startDate: startUTC,
+            endDate: endUTC,
           },
         },
       );
+
       console.log("Fetched data:", res.data);
       setData(res.data);
     } catch (err) {
@@ -40,7 +47,6 @@ function SensorHistory() {
       <div style={styles.container}>
         <h2 style={styles.title}>📅 Greenhouse Historical Data</h2>
 
-        {/* Filters */}
         <div style={styles.filters}>
           <div style={styles.inputGroup}>
             <label>Start Date & Time</label>
@@ -67,7 +73,6 @@ function SensorHistory() {
           </button>
         </div>
 
-        {/* Results */}
         <div style={styles.results}>
           {data.length === 0 && !loading && (
             <p style={{ opacity: 0.7 }}>No data found for selected range.</p>
@@ -76,8 +81,7 @@ function SensorHistory() {
           {data.map((item) => (
             <div key={item._id} style={styles.card}>
               <div style={styles.time}>
-                🕒{" "}
-                {new Date(item.timestamp || item.recordedAt).toLocaleString()}
+                🕒 {new Date(item.timestamp).toLocaleString()}
               </div>
               <div style={styles.values}>
                 🌡 {item.temperature}°C 💧 {item.humidity}% 🌱{" "}
@@ -113,10 +117,7 @@ const styles = {
     backdropFilter: "blur(10px)",
     boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
   },
-  title: {
-    textAlign: "center",
-    marginBottom: "25px",
-  },
+  title: { textAlign: "center", marginBottom: "25px" },
   filters: {
     display: "flex",
     flexWrap: "wrap",
@@ -125,11 +126,7 @@ const styles = {
     marginBottom: "25px",
     alignItems: "flex-end",
   },
-  inputGroup: {
-    display: "flex",
-    flexDirection: "column",
-    fontSize: "14px",
-  },
+  inputGroup: { display: "flex", flexDirection: "column", fontSize: "14px" },
   input: {
     padding: "10px 12px",
     borderRadius: "8px",
@@ -149,26 +146,15 @@ const styles = {
     cursor: "pointer",
     height: "40px",
   },
-  results: {
-    marginTop: "10px",
-  },
+  results: { marginTop: "10px" },
   card: {
     background: "rgba(255,255,255,0.12)",
     padding: "12px 15px",
     borderRadius: "10px",
     marginBottom: "10px",
   },
-  time: {
-    fontSize: "13px",
-    opacity: 0.8,
-    marginBottom: "4px",
-  },
-  values: {
-    display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-    fontSize: "14px",
-  },
+  time: { fontSize: "13px", opacity: 0.8, marginBottom: "4px" },
+  values: { display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "14px" },
 };
 
 export default SensorHistory;

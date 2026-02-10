@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import dotenv from "dotenv";
-dotenv.config();
 import {
   BarChart,
   Bar,
@@ -17,49 +15,44 @@ import {
   Legend,
 } from "recharts";
 
-const CHANNEL_ID = process.env.THNIGKSPEAK_CHANNEL_ID;
-const API_KEY = process.env.THNIGKSPEAK_READ_API_KEY;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const COLORS = ["#ff6b6b", "#4ecdc4", "#f7b731", "#45b7d1", "#9b59b6"];
 
-const GreenhouseDashboard = () => {
-  const [history, setHistory] = useState([]);
+export default function GreenhouseDashboard() {
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem("greenhouseHistory");
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
       const res = await axios.get(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=1`,
+        `http://localhost:3637/api/greenhouse/latest`,
       );
 
-      const feed = res.data.feeds[0];
+      const formatted = res.data.map((item) => ({
+        time: new Date(item.timestamp).toLocaleTimeString(),
+        temperature: item.temperature,
+        humidity: item.humidity,
+        soil: item.soilMoisture,
+        light: item.light,
+        co2: item.co2,
+      }));
 
-      const newEntry = {
-        time: new Date(feed.created_at).toLocaleTimeString(),
-        temperature: Number(feed.field1),
-        humidity: Number(feed.field3),
-        soil: Number(feed.field4),
-        light: Number(feed.field5),
-        co2: Number(feed.field6),
-      };
-
-      setHistory((prev) => [...prev.slice(-19), newEntry]);
-
-      await axios.post(
-        "https://greenhouse-backend-4.onrender.com/api/greenhouse",
-        {
-          temperature: newEntry.temperature,
-          humidity: newEntry.humidity,
-          soilMoisture: newEntry.soil,
-          light: newEntry.light,
-          co2: newEntry.co2,
-          timestamp: feed.created_at,
-        },
-      );
+      setHistory(formatted);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
     }
   };
 
+  // Save chart data locally so it doesn't vanish on page change
+  useEffect(() => {
+    localStorage.setItem("greenhouseHistory", JSON.stringify(history));
+  }, [history]);
+
+  // Auto refresh every 20s
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 20000);
@@ -94,8 +87,8 @@ const GreenhouseDashboard = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={pieData} dataKey="value" outerRadius={110} label>
-                {pieData.map((entry, index) => (
-                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                {pieData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
               <Legend />
@@ -106,130 +99,60 @@ const GreenhouseDashboard = () => {
       )}
 
       <div style={styles.grid}>
-        <ChartCard
-          title="Temperature (°C)"
-          data={history}
-          dataKey="temperature"
-          color="#ff6b6b"
-        />
-        <ChartCard
-          title="Humidity (%)"
-          data={history}
-          dataKey="humidity"
-          color="#4ecdc4"
-        />
-        <ChartCard
-          title="Soil Moisture (%)"
-          data={history}
-          dataKey="soil"
-          color="#f7b731"
-        />
-        <ChartCard
-          title="Light Intensity (lx)"
-          data={history}
-          dataKey="light"
-          color="#45b7d1"
-        />
-        <ChartCard
-          title="CO₂ Level"
-          data={history}
-          dataKey="co2"
-          color="#9b59b6"
-        />
+        {["temperature", "humidity", "soil", "light", "co2"].map((key, i) => (
+          <ChartCard
+            key={key}
+            title={key.toUpperCase()}
+            data={history}
+            dataKey={key}
+            color={COLORS[i]}
+          />
+        ))}
       </div>
     </div>
   );
-};
+}
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={styles.tooltip}>
-        <p>
-          <strong>Time:</strong> {label}
-        </p>
-        <p>
-          <strong>Value:</strong> {payload[0].value}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
-const ChartCard = React.memo(({ title, data, dataKey, color }) => (
-  <div
-    style={styles.card}
-    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-  >
+const ChartCard = ({ title, data, dataKey, color }) => (
+  <div style={styles.card}>
     <h3>{title}</h3>
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
         <XAxis dataKey="time" tick={{ fontSize: 10 }} />
         <YAxis />
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip />
         <Bar dataKey={dataKey} fill={color} barSize={5} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   </div>
-));
+);
 
 const styles = {
   page: {
     minHeight: "100vh",
-    width: "100vw",
-    boxSizing: "border-box",
-    background: "linear-gradient(135deg, #141e30, #243b55)",
-    padding: "30px 40px",
-    color: "white",
-    fontFamily: "'Segoe UI', sans-serif",
+    background: "#141e30",
+    padding: 30,
+    color: "#fff",
   },
-  header: {
-    textAlign: "center",
-    marginBottom: "20px",
-  },
-  topBar: {
-    textAlign: "center",
-    marginBottom: "20px",
-  },
+  header: { textAlign: "center", marginBottom: 20 },
+  topBar: { textAlign: "center", marginBottom: 20 },
   historyBtn: {
     padding: "10px 18px",
-    borderRadius: "8px",
-    border: "none",
+    borderRadius: 8,
     background: "#4ecdc4",
-    color: "#000",
-    fontWeight: "bold",
-    cursor: "pointer",
+    border: "none",
   },
   pieCard: {
-    background: "rgba(255,255,255,0.08)",
-    padding: "20px",
-    borderRadius: "15px",
-    marginBottom: "30px",
-    backdropFilter: "blur(10px)",
+    background: "#1f2b3a",
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 30,
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: "20px",
+    gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))",
+    gap: 20,
   },
-  card: {
-    background: "rgba(255,255,255,0.08)",
-    padding: "15px",
-    borderRadius: "15px",
-    backdropFilter: "blur(10px)",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-  },
-  tooltip: {
-    background: "rgba(0,0,0,0.85)",
-    padding: "10px 14px",
-    borderRadius: "8px",
-    color: "#fff",
-    fontSize: "13px",
-  },
+  card: { background: "#1f2b3a", padding: 15, borderRadius: 15 },
 };
-
-export default GreenhouseDashboard;
