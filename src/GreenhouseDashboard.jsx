@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import dotenv from "dotenv";
+dotenv.config();
 import {
   BarChart,
   Bar,
@@ -15,8 +17,8 @@ import {
   Legend,
 } from "recharts";
 
-const CHANNEL_ID = "3163559";
-const API_KEY = "C7FJYPZ5GXKZM72T";
+const CHANNEL_ID = process.env.THNIGKSPEAK_CHANNEL_ID;
+const API_KEY = process.env.THNIGKSPEAK_READ_API_KEY;
 const COLORS = ["#ff6b6b", "#4ecdc4", "#f7b731", "#45b7d1", "#9b59b6"];
 
 const GreenhouseDashboard = () => {
@@ -42,14 +44,17 @@ const GreenhouseDashboard = () => {
 
       setHistory((prev) => [...prev.slice(-19), newEntry]);
 
-      await axios.post("http://localhost:3637/api/greenhouse", {
-        temperature: newEntry.temperature,
-        humidity: newEntry.humidity,
-        soilMoisture: newEntry.soil,
-        light: newEntry.light,
-        co2: newEntry.co2,
-        timestamp: feed.created_at,
-      });
+      await axios.post(
+        "https://greenhouse-backend-4.onrender.com/api/greenhouse",
+        {
+          temperature: newEntry.temperature,
+          humidity: newEntry.humidity,
+          soilMoisture: newEntry.soil,
+          light: newEntry.light,
+          co2: newEntry.co2,
+          timestamp: feed.created_at,
+        },
+      );
     } catch (err) {
       console.error(err);
     }
